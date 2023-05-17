@@ -14,7 +14,7 @@ class AuthController extends ResourceController
 
     // date config for jwt
     private $timeExpiration = (3600 * 2); // 2 hours
-    private $date_to_renew = (1800); // 30 minutes
+    private int $date_to_renew = (1800); // 30 minutes
 
     public function __construct()
     {
@@ -123,9 +123,9 @@ class AuthController extends ResourceController
             ];
         }
 
-        if($response['status'] == 200) {
-            return $this->respond($response['data'] , $response['status']);
-        }else {
+        if ($response['status'] == 200) {
+            return $this->respond($response['data'], $response['status']);
+        } else {
             return $this->respond($response['message'], $response['status']);
         }
 
@@ -134,7 +134,7 @@ class AuthController extends ResourceController
     /**
      * Faz o logout do usuário
      *
-     * @return void
+     * @return ResponseInterface
      */
     public function logout()
     {
@@ -173,11 +173,87 @@ class AuthController extends ResourceController
     }
 
     /**
+     * @throws \ReflectionException
+     */
+    public function signup()
+    {
+        $rules = [
+            "name" => "required",
+            "email" => "required|valid_email",
+            "username" => "required|min_length[5]",
+            "password" => "required|min_length[6]",
+            "password_confirmation" => "required|matches[password]"
+        ];
+
+        $messages = [
+            "name" => [
+                "required" => "Name is required",
+            ],
+            "email" => [
+                "required" => "Email is required",
+            ],
+            "username" => [
+                "required" => "Username is required",
+            ],
+            "password" => [
+                "required" => "Password is required",
+            ],
+            "password_confirmation" => [
+                "required" => "Password confirmation is required",
+            ],
+        ];
+
+
+        if ($this->validate($rules, $messages)) {
+
+            $form = $this->request->getVar();
+
+            $user = $this->userModel->where([
+                'username' => $form->username
+            ])->first();
+
+            if ($user) {
+                $response = [
+                    'status' => 400,
+                    'message' => 'Usuário já cadastrado no sistema',
+                ];
+            }else{
+                // Save new user
+
+                $form->password = password_hash($form->password, PASSWORD_DEFAULT);
+                $form->active = 't';
+                $form->auth_2fa = 'f';
+                $form->plan_id = 1;
+                $form->created_at = date('Y-m-d H:i:s');
+                $form->updated_at = date('Y-m-d H:i:s');
+
+                $this->userModel->save($form);
+                $response = [
+                   'status' => 201,
+                   'message' => 'Usuário criado com sucesso'
+                ];
+
+                return $this->respond($response, 201);
+
+            }
+        } else {
+            $response = [
+                'status' => 400,
+                'message' => $this->validator->getErrors(),
+            ];
+        }
+
+        return $this->respond($response, $response['status']);
+
+    }
+
+    /**
      * Envia email de recuperação de senha
      *
      * @return void
      */
-    public function forgotPassword()
+    public
+    function forgotPassword()
     {
         $rules = [
             "email" => "required|valid_email",
